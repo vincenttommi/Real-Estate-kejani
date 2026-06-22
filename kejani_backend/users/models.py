@@ -116,4 +116,110 @@ class Meta:
     data = "users"
     ordering =  ['-created_at']
 
+
+def __str__(self):
+    return self.email
+
+
+
+class Email verificationToken(SoftDeletableModel):
+    """
+    One-time email verificationToken
+    """
+
+     user  = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="email_verification_token",
+    )
+    token = models.UUIDField(default=uuid.uuid4,unique=True)
+    is_used =  models.BooleanField(default=False)
+
+
+    class Meta:
+        db_table  = "email_verification_tokens"
+
+    def __str_(self):
+        return f"EmailVerification for {self.user.email}"
+
+
+
+
+class PasswordResetToken(SoftDeletableModel):
+
+    """Password reset token """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="email_verification_token",
+    )
+    token = models.UUIDField(default=uuid.uuid4,unique=True)
+    is_used = models.BooleanField(default=False)
+
+
+
+    class Meta:
+        db_table = "email_verification_tokens"
+
+
+    def __str__(self):
+        return f"EmailVerification for {self.user.email}"
+
+
+
+
+
+
+class PasswordResetToken(SoftDeletableModel):
+    """
+    password reset token
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="password_reset_tokens",
+
+    )
+
+
+    token = models.UUIDField(default=uuid.uuid4,unique=True)
+    is_used = models.BooleanField(default=False)
+    expires_at = models.DateTimeField()
+
+
+    class Meta:
+        db_table = "password_reset_tokes"
+
+    def save(self,*args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(hours=1)
+        super().save(*args,**kwargs)
+
+    def is_valid(self):
+        return (
+            not self.is_used
+            and self.expires_at > timezone.now()
+            and self.user.is_active
+            and self.user.on_deleted_at is None
+        )   
+
+
+    def __str__(self):
+        return f"passwordReset for {self.user.email}"        
+
+
+
+
+
+
+
+
+
+
+
+
     
+
+
