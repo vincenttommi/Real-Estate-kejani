@@ -1,11 +1,9 @@
-from django.conf  import settings
-from django.contrib.auth.base_user import AbstractBaseUser
+import uuid
+from datetime import timedelta
+from django.conf import settings
+from django.contrib.auth.base_user import BaseUserManager
+from django.contrib.auth.models import AbstractUser,PermissionsMixin
 from django.db import models
-from django.utils import timezone
-
-from core.common import SoftDeletableModel,TimeStampedModel
-
-
 
 
 
@@ -211,6 +209,184 @@ class PasswordResetToken(SoftDeletableModel):
 
 
 
+
+#
+#INVITATIONS
+#
+
+
+
+class PMInvitation(SoftDeletableModel):
+    """
+    Property Manager Invitation
+    """
+
+
+    STATUS_CHOICES = (
+        ("pending","Pending"),
+        ("accepted","Accepted"),
+        ("expired","Expired"),
+        ("declined")
+    )
+
+
+
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="pm_invitations_sent",
+    )
+
+    property_id = models.IntegerField(null=True,blank=True)
+    invite_token = models.UUIDField(default=uuid.uuid4,)
+
+    invited_token = models.UUIDField(default=uuid.uuid4, unique=True)
+    invited_email = models.EmailField()
+    invited_name = models.CharField(max_length=200)
+    invited_by = models.CharField(max_length=15,blank=True)
+
+     
+    common_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=10.0,
+    )
+
+
+    status  = models.CharField(
+        max_length=20,choices=STATUS_CHOICES,
+        default="pending",
+    )
+
+    expires_at = models.DateTimeField()
+
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="pm_invitations_receieved",
+    )
+
+    class Meta:
+        db_table = "pm_invitations"
+
+    def save(self,*args,**kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=7)
+        super().save(*args, **kwargs)
+
+
+
+
+
+class TenantInvitation(SoftDeletableModel):
+
+    """Tenant Invitation"""
+
+    STATUS_CHOICES =(
+        ("pending","Pending"),
+        ("accepted","Accepted"),
+        ("expired","Expired"),
+    )
+
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tenant_invitations_sent",
+    )
+
+   unit_id = models.IntegerField(null=True,blank=True)
+   unit_number = models.CharField(max_length=20,blank=True)
+   property_name = models.CharField(max_length=200,blank=True)
+
+   invite_token = models.UUIDField(default=uuid.uuid4, unique=True)
+
+   invite_emai = models.EmailField()
+   invited_name = models.CharField(max_length=200,blank=True)
+   invited_phone = models.CharField(max_length=15,blank=True)
+
+
+   status = models.CharField(
+    max_length=20,
+    choices=STATUS_CHOICES,
+    default="pending",
+   )
+
+
+   expires_at = models.DateTimeField()
+   
+   accepted_by = models.ForeignKey(
+    settings.AUTH_USER_MODEL,
+    null=True,
+    blank=True,
+    on_delete=models.SET_NULL,
+    related_name="tenant_invitations_received",
+   )
+
+class Meta:
+    db_table = "tenant_invitations"
+
+def save(self,*args, **kwargs):
+    if not self.expires_at:
+        self.expires_at = timezone.now() + timedelta(days=7) 
+    super().save(*args,**kwargs)
+
+
+
+def is_valid(self):
+    return self.status == "pending" and self.expires_at > timezone.now
+
+ 
+def __str_(self):
+    return f"TenantInvitation for {self.invite_emaail} "
+
+
+
+#AUDIT LOG 
+
+
+class AcessAuditLog(SoftDeletableModel):
+    """ Audit log model"""
+
+    EVENT_CHOICES = (
+        ("login_success","Login Success"),
+        ("login_failed","Login Failed"),
+        ("logout","Logout"),
+        ("registration","Registration"),
+        ("email_verified","Email Verified"),
+        ("password_reset_requested","Password Reset Requested"),
+        ("password_reset_completed","Password Changed"),
+        ("account_approved","Account Approved"),
+        ("account_rejected","Account Rejected"),
+        ("account_suspended","Account Suspended"),
+        ("demo_login","Demo Login"),
+        ("invitation_sent","Invitation Sent"),
+        ("invitation_accepted","Invitation Accepted"),
+    )
+
+ 
+    event  = models.CharField(max_length=30,choices=EVENT_CHOICES)
+     
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,blank=True,on_delete=models.SET_NULL,related_name="audit_logs",        
+    )
+
+
+    ip_address = models.GeneratedField(null=True,blank=True)
+    role = models.CharField(max_length=20,blank=True)
+    details = models.JSONField(default=dict,blank=True)
+
+    class Meta:
+        db_table = "access_audit_log"
+        ordering = ["-created"]
+     
+    def __str__(self):
+        return f"{self.event} - {self.user or 'anonymous'} - {self.created_at}"
+
+ 
 
 
 
