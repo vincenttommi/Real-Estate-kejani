@@ -94,5 +94,48 @@ class PMInvitationAdmin(admin.ModelAdmin):
 @admin.register(TenantInvitation)
 class TenantInvitationAdmin(admin.ModelAdmin):
     list_display =(
-        'invited_email','invited_name','invited_by','property_name','unit_number','status','expires_at',
+        'invited_email','invited_name','invited_by',
+        'property_name','unit_number','status','expires_at',
     )
+    list_filter = ('status')
+    search_fields = ('invited_email','invited_name','property_name')
+
+
+
+
+@admin.register(AcessAuditLog)
+class AcessAuditLogAdmin(admin.ModelAdmin):
+    """
+    AcessAditLogAdmin documentatiom string
+    """
+
+    list_display = ("event","user","ip_address","role","created_at")
+    list_filter = ("event","user","ip_address","role","created")
+    search_fields  = ("user__email","ip_address")
+    readonly_fields = ("event","user","ip_address","role","details","created")
+
+    
+    def has_add_permission(self,request):
+        """
+        has_add_permission documentation string
+        """
+        return False
+
+    def has_add_permission(self,request):
+        """
+        has_add_permission documentation string.
+        """   
+        return False  
+
+    def  has_add_permission(self,request,obj=None):
+        """
+        has_change_permission documentation string.
+        """   
+        return False
+
+    def has_change_permission(self,request,obj=None):
+        """
+        has_delete_permission documentation string.
+        """  
+        return False    
+
