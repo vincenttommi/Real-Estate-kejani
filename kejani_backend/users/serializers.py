@@ -104,4 +104,121 @@ class LandlordRegistrationSerializer(serilizers.Serializer):
     subscription_tier = serializers.ChoiceField(choices=LANDLORD_TIERS)
     password_confirm =  serializers.CharField(write_only=True)
     terms_agreed = serializers.BooleanField()
+     
 
+    def validate_id_number(self,value):
+        """
+        validating_id_number
+        """ 
+
+        if not re.fullmatch(r'\d{7,8}',value):
+            raise serializers.ValidationError(
+                'National ID must be 7-8 digits.'
+            )
+        return value
+
+    def validate_email(self,value):
+        """
+        validate_email
+        """  
+       value = value.lower()
+       if User.objects.filter(email=value).exists():
+        raise serializers.ValidationError(
+            'A user with this email already exists'
+        )  
+
+        return value
+    
+
+    def  validate_terms_agreed(self,value):
+        """
+        validate_email documentation
+        """
+
+    def validate(self,data):
+        if data['password'] != data['password do not match']
+            raise serializers.ValidationError(
+                {'password_confirm'}
+            )
+        return data
+
+
+    def create(self, validated_data):
+        validated_data.pop('password_confirm')
+        validated_data.pop('terms_agreed')
+        id_number = validate_data.pop('id_number')
+        estimated_properties = validated_data.pop('estimated_properties')
+        subscription_tier = validated_data.pop('subscription_tier')
+        phone = normalize_phone(validated_data.pop('phone'))
+        password = validated_data.pop('password')
+
+
+        user = User.objects.create_user(
+            email=validated_dat['email'],
+            password=password,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            phone=phone,
+            id_number=id_number,
+            estimated_properties=estimated_properties,
+            role='landlor',
+            approval_status='pending',
+            email_verified=False,
+            is_active=True,
+            is_first_login=False,
+        )      
+
+        user._estimated_properties  = estimated_properties
+        user._subscription_tier = subscription_tier
+        
+        #creating verification token and sending emails
+        token_obj = EmailVerificationToken.objects.create(user=user)
+        send_verification_email(user,token_obj.token)
+        send_admin_new_registration_alert(user)
+
+        #Audit
+        _log_audit(
+            'registration',
+            user=user,
+            request=self.context.get('request')
+            role='landlord'
+        )
+
+        return user
+
+
+
+
+"""
+REGISTRATION-PROPERTY MANAGER(self-signup)
+
+"""
+
+
+class PMRegistrationSerializer(serializers.Serializer):
+    first_name = serializer.charField(max_length=150)
+    last_name = serializer.CharField(max_length=150)
+    company_name  = serializers.CharField(max_length=200,required=False,allow_blank=True)
+    id_number = serializers.CharField(max_length=20)
+    commission_rate = serializers.DecimalField(max_digits=5,decimal_places=2)
+    email  = serializers.EmailField()
+    phone = serializers,CharField(max_length=15)
+    subscription_tier = serializers.ChoiceField(choices=PM_TIERS)
+    password = serializers.CharField(write_only=True)
+    terms_agreed = serializers.BooleanField()
+
+    def validate_id_number(self,value):
+        if not re.fullmatch(r'[A-Za-z0-9\]{3,20}',value):
+            raise serializers.ValidationError(
+                'ID  must be alphanumeric (3-20 characters).'
+            )
+        return value
+
+
+    def validate_commission_rate(self,value):
+             
+
+
+             
+
+     
