@@ -216,9 +216,370 @@ class PMRegistrationSerializer(serializers.Serializer):
 
 
     def validate_commission_rate(self,value):
-             
+        if not (0 <= value <= 20):
+            raise seriaizers.ValidationError(
+                'Commision rate must be between  10 and 20%.'
+            )
+        return value
+
+    def validate_email(self,value):
+        value = value.lower()
+        if User.objects.filter(email=value).exists():
+            raise serializer.ValidationError(
+                'A user with email already exists'
+            )  
+        return value
+
+    def validate_terms_agreed(self,value):
+        if not value:
+            raise serializers.ValidationError(
+                'you must agree to the terms '
+            )   
+        return data
+
+    def validate(self,data):
+        if data['password'] !=data['password_confirm']:
+            raise serializers.ValidationError(
+                {'password_confirm':'Passwords do not match.'}
+            )           
+
+    def create(self, validated_data):
+       validated_data.pop('password_confirm')
+       validated_data.pop('terms_agreed')
+       id_number = validated_data.pop('id_number')
+       commission_rate = validated_data.pop('commission_rate')
+       subscription_tier = validated_data.pop('subscription_tier')
+       phone = _normalze_phone(validated_data.pop('phone'))
+       password = validated_data.pop('password')
+
+         user  = User.objects.create_user(
+            email=validated_dat['email'], 
+            password=password,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name']    
+            phone =phone,
+            id_number=id_number,
+            role='property_number',
+            approval_status='pending',
+            email_verified =False,
+            is_active=True,
+            is_first_login=False,
+
+            )    
+
+        user.id_number = id_number 
+        user._commission_rate = commission_rate
+        user._subscription_tier = subscription_tier
+        user._company_name  = company_name
+
+        token_obj = EmailVerificationToken.objects.create(user=user)
+        send_verification_email(user,token_obj.token)
+        send_admin_new_registration_alert(user)
+
+        _log_audit(
+            'registration',
+            user=user ,
+            request=self.context.get('request') ,
+            role='property_manager',
+
+        )
+        return user
+
+Class InvitedPMRegistrationSerializer(serializers.Serializer):
+    invite_token = serializers.UUIDField()
+    first_name  = serializers.CharField(max_length=150)
+    last_name  = serializers.CharField(max_length=150)
+    company_name  = serializers.CharField(max_length=200,required=False, allow_blank=True)
+    id_number = serializers.CharField(max_length=20)
+    commission_rate = serializers.DecimalField(max_digits=5, decimal_places=2)
+    email = serializers.EmailField()
+    phone  = serializers.CharField(max_lenght=15)
+    subscription_tier = serializers.ChoiceField(choices=PM_TIERS)
+    password  = serializers.CharField(write_only=True, validators=[validate_password])
+    password_confirm = serializers.CharField(write_only)
+    terms_agreed  = serializers.BooleanField()
 
 
-             
+    def validate_invite_token(self,value):
+        try:
+            invitation = PMInvitation.objects.get(invite_token=value)
+            except PMInvitation.DoesNotExist:
+                raise serializers.ValidationError('Invalid invitation token.')
 
-     
+        if not invitation.is_valid():
+            raise serializers.ValidationError('Invalid invitation token.')
+
+        self._invitation = invitation
+        return value
+
+
+    def validate_id_number(self,value):
+        if not re.fullmatch(r'[A-Za-z0-9]{3,20}',value):
+            raise serializers.ValidationError('ID must be alphanumeric (3-20 charcters) '.)
+
+        return value
+
+
+    def validate_commission_rate(self,value):
+        if not (10 <= value <=20):
+            raise serializers.ValidationError('Commission rate must be between 10 and 20.')    
+
+        return value
+
+    def validate_email(self,value):
+        if not  value:
+            raise serializers.ValidationError('You must agree to the terms.')
+        return value
+
+               
+    def validate_terms_agreed(self,value):
+        if not value:
+            raise  serializers.ValidationError('You must agree to the terms')
+        return value
+
+
+    def validate(self,data):
+        if data['password'] != data['password_confirm']:
+            raise serializers.ValidationError({'password_confirm':'passwords do not match'})
+
+        invitation = getattr(self,'_invitation',None)
+        if invitation and data.get('email','').strip().lower() != invitation.invited.lower():
+            raise serializers.ValidationError({
+                'email':'This  email does not match the invitation.'
+            })
+
+    return data   
+
+    def create(self,validated_data):
+        with transaction.atomic():
+            invite_token = validate.data.get('invite_token')
+            try:
+                invitation = PMInvitation.objects.select_for_update().get(
+                      invite_token=invite_token
+                )  
+            except PMInvitation.DoesNotExist:
+                raise serializers.validationError('This invitation has expired or been used.')
+
+
+            if not invitation.is_valid():
+                raise  serilizers.ValidationError('This invitation has expired or been used.')
+
+
+            validated_data.pop('password',None)
+            validated_data.pop('terms_agreed',None)
+            validated_data.pop('invite_token',None)
+            id_number = validated.data.pop('commission_rate')
+            commission_rate = validated_data.pop('commission_rate')
+            subscription_tier = validated_data.pop('subscription_tier')
+            company_name = validated_data.pop('company_name','')
+            phone  = normalize_phone(validated_data.pop('phone'))
+            password  = validated_data.pop('password')
+
+            user  = User.objects.create_user(
+              email=validated_data['email'],
+              password=password,
+              first_name=validated_data['first_name'],
+              last_name=validated_data['last_name'],
+              phone=phone,
+              role='property_manager',
+              approval_status='pending',
+              email_verified=False,
+              is_active=True,
+              is_first_login=False,
+            )
+    user.id_number = id_number
+    user._commission_rate = commission_rate  
+    user._subscription_tier  = subscription_tier
+    user._company_name = company_name 
+
+    invitation.accepted_by = User
+    invitation.status  = 'accepted'
+    invitation.save(update_fields=['accepted_by','status'])
+
+    
+    token_obj = EmailVerificationToken.objects.create(user=user)
+    send_verification_email(user,token_obj.token)
+    send_admin_new_registration_alert(user)
+
+    __log_audit(
+        'registration',
+        user=user,
+        request=self.context.get('request'),
+
+    )
+
+    _log_audit(
+        'invitation_accepted',
+        user=user,
+        request=self.context.get('request'),
+        role='property_manager',
+        invited_by=invitation.invited_by.email,
+    )
+
+    return user 
+
+
+
+
+
+
+class InvitedTenantRegistrationSerializer(serializers.Serializer):
+    invited_token = seriliazer.UUIDField()
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    id_number  = serilizers.CharField(max_lenght=8)
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=15,required=False,allow_blank=True)
+    password  = serilizers.CharField(write_only=True,validators=[validate_password])
+    password_confirm = serilizers.CharField(write_only=True)
+
+    def validate_invite_token(self,value):
+        try:
+            invitation = TenantInvitation.objects.get(invite_token=value)
+        except TenantInvitation.DoesNotExist:
+            raise serilizers.ValidationError('Invalid invitation token.')
+       if not invitation.is_valid():
+           raise serializers.ValidationError('This invitation has expired or been used.')
+        self.invitation = invitation
+        return value
+
+    def validate_id_number(self,value):
+        if not re.fullmatch(r'\d{7,8}',value):
+            raise serilizers.ValidationError('National ID must be7-8 digits')
+        return value
+
+    def validate_email(self,value):
+        value = value.lower()
+        if User.objects.filter(email=value).exists()
+           raise serilizers.ValidationError('A use  with this email already exists.')
+        return value
+
+    def validate(self,data):
+        if data['password'] != data['password_confirm']:
+            raise serializers.ValidationError({'password_confirm':'Password do not match. '})
+
+        invitation = getattr(self,'_invitation',None)
+        if invitation and data.get('email','' ).strip().lower != invitation.invited_email.lower():
+            raise  serialiers.ValidationError({
+                'email':'This email does not match the invitation.'
+            })  
+        return data
+
+    def  create(self, validated_data):
+          with  transaction.atomic():
+            invite_token = validated_data.get('invite_token')
+
+            try:
+                invitation = TenantInvitation.objects.select_for_update().get(
+                    invite_token=invite_token
+                )      
+            except TenantInvitation.DoesNotExist:
+                raise serializers.ValidationError('Invalid invitation token.')
+
+        if not invitation.is_valid():
+            raise serializers.ValidationError('This invitation token.')
+
+        validated_data.pop('password_confirm',None)
+        validated_data.pop('invite_token',None)
+        id_number = validated_data.pop('id_number')
+        phone = normalize_phone(validated_data.pop('phone',''))
+        password = validated_data.pop(password)
+
+
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=password,
+            first_name=validated_data['first_name']
+            last_name=validated_data['last_name'],
+            phone=phone,
+            role='tenant',
+            approval_status='not reguired',
+            email_verified=True,
+            is_active=True,
+            is_first_login=False,
+        )
+
+        user._id_number = id_number
+        invitation.accepted_by = user
+        invitation.status = 'accepted'
+        invitation.save(update_fields=['accepted_by','status'])
+
+        _log_audit(
+            'registration',
+            user=user,
+            request=self.context.get('request'),
+            role='tenant',
+        )
+        _log_audit(
+            'invitation_accepted',
+            user=User
+            request.self.context.get('request'),
+            invitation_id=invitation.pk
+        )
+        
+        return user
+
+
+Class CreateTenantSerializer(serilizers.Serializer):
+    first_name = serilizers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    email  = serilizers.EmailField()
+    phone = serilizers.CharField(max_lenght=15,required=False,allow_blank=True)
+    id_number  = serilizers.CharField(max_length=8)
+
+
+    def validate_id_number(self,value):
+        if not re.fullmatch(r'\d{7,8}',value):
+            raise serilizers.ValidationError('National ID must be 7-8 digits.')
+        return value
+
+    def validate_email(self,value):
+        value = value.lower()
+        if User.objects.filter(email=value).exists():
+            raise serilizers.ValidationError('Auser with email already exists.')
+        return value
+
+    def create(self, validated_data):
+        id_number = validated_data.pop('id_number')
+        phone = normalize_phone(validated_data.pop('phone','')) 
+        temp_password  = __generate_random_password()
+
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=temp_password,
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            phone =phone,
+            id_number = id_number,
+            role = 'tenant',
+            approval_status='not_required',
+            email_verified=True,
+            is_active=True,
+            is_first_login=True,
+        ) 
+
+
+        #sending temporary credentials
+
+        send_temp_credentails_email(user,temp_password)
+
+        creator  = self.context.get('request').user
+        _log_audit(
+            'registration',
+            user=user,
+            request=self.context.get('request'),
+            role='tenant',
+            created_by=creator.email
+        )
+
+        return user
+
+
+
+
+
+                
+
+
+
+
