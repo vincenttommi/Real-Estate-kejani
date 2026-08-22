@@ -7,15 +7,28 @@ from decouple import config
 BASE_DIR = Path(__file__).resolve().parent.parent
 from datetime import timedelta
 
+
+#Initialize enviroment
+#env = environ.Env()
+# environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config(
     "SECRET_KEY",default='django-insecure-sqre(rt!cagi(7k2i9b9o1q57fns9zl$9tzm32x#q6rt#^ej9w'
 )
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "178.18.243.142",
+    "0.0.0.0"
+]
 
 
 DEBUG = config("DEBUG",default=False,cast=bool)
@@ -77,7 +90,7 @@ INSTALLED_APPS =[
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
-    'django_extensions'
+    'django_extensions',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -322,3 +335,7 @@ SIMPLE_JWT = {
 }
 
 
+CORS_ALLOW_CREDENTIALS = True
+"""
+instructs  the browser to allow cookies,authentication tokens and other credentials to be included  in cross-origin requests to django API
+"""
