@@ -1,6 +1,4 @@
-import environ
 import os
-from logging import config
 from pathlib import Path
 from decouple import config
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -11,10 +9,6 @@ from datetime import timedelta
 #Initialize enviroment
 #env = environ.Env()
 # environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
-
-
-
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config(
     "SECRET_KEY",default='django-insecure-sqre(rt!cagi(7k2i9b9o1q57fns9zl$9tzm32x#q6rt#^ej9w'
@@ -31,8 +25,6 @@ ALLOWED_HOSTS = [
 ]
 
 
-DEBUG = config("DEBUG",default=False,cast=bool)
-
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -46,7 +38,7 @@ ALLOWED_HOSTS = [
 EMAIL_BACKEND = config('EMAIL_BACKEND',default='django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = config('EMAIL_HOST',default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT',cast=int, default=587)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS',cast='bool', default=True)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS',cast=bool, default=True)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER',default='vincenttommikorir@gmail.com')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD',default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL',default=EMAIL_HOST_USER)
@@ -336,6 +328,7 @@ SIMPLE_JWT = {
 
 
 CORS_ALLOW_CREDENTIALS = True
+
 """
 instructs  the browser to allow cookies,authentication tokens and other credentials to be included  in cross-origin requests to django API
 """
